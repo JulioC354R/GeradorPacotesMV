@@ -1,4 +1,3 @@
-import datetime
 import os
 import threading
 import tkinter as tk
@@ -34,6 +33,16 @@ def load_windows(event:None):
         return
 
     lista_pacotes = [f for f in os.listdir(forms_path) if os.path.isdir(os.path.join(forms_path, f))]
+    if window_type == 'libs':
+        dbservices_path = os.path.normpath(os.path.join(
+        repo_dir,
+        window_type, "src", "main", "java", 'br', "com", "mv", "soul",
+        os.path.basename(repo_dir),
+        'dbservices'
+        ))
+        if os.path.exists(dbservices_path):
+            lista_pacotes.append('dbservices')
+    
     combobox_windows['values'] = lista_pacotes
     if lista_pacotes:
         combobox_windows.current(0)
@@ -41,9 +50,9 @@ def load_windows(event:None):
         combobox_windows.set('')
 
 def run_commands(repo_dir: str, window: str, type: str):
-    sucess = True
+    sucess = False #Padrão False
     os.chdir(repo_dir)
-    # colar old aqui
+        # colar old aqui
     process = subprocess.Popen(
         ["mvn", "clean", "install", "-U"],
         stdout=subprocess.PIPE,
@@ -62,7 +71,7 @@ def run_commands(repo_dir: str, window: str, type: str):
         text_output.update()  # força atualização imediata do Tkinter
 
     process.wait()  # espera o processo terminar
-    
+  
 
     if sucess:
         make_zip(repo_dir, window, type)
@@ -94,44 +103,55 @@ def process():
 
 
 def make_zip(repo_dir: str, window_dir: str, type: str):
-    file_path = os.path.normpath(os.path.join(
+    if window_dir != 'dbservices':
+
+        file_path = os.path.normpath(os.path.join(
         repo_dir,
         type, "target", "classes", "br", "com", "mv", "soul",
         os.path.basename(repo_dir),
         type,
         window_dir
     ))
+        file_extension= ''
 
-    file_extension= ''
-
-    if (type == 'forms'):
-        file_extension = 'Task.class'
-    elif (type == 'reports'):
-        file_extension = 'Scriptlet.class'
-    elif (type == 'libs'):
-        file_extension = 'Services.class'
+        if (type == 'forms'):
+            file_extension = 'Task.class'
+        elif (type == 'reports'):
+            file_extension = 'Scriptlet.class'
+        elif (type == 'libs'):
+            file_extension = 'Services.class'
 
 
-    #verificando se o o arquivo .class foi gerado
-    file  = os.path.normpath(os.path.join(
-        file_path,
-        window_dir + file_extension
+        #verificando se o o arquivo .class foi gerado
+        file  = os.path.normpath(os.path.join(
+            file_path,
+            window_dir + file_extension
 
-    ))
+        ))
+        if (os.path.exists(file)):
+            text_output.insert(tk.END, "O arquivo " +  window_dir + file_extension + " está presente! Criando Pacote....")
+            text_output.see(tk.END)
+            text_output.update()  # força atualização imediata do Tkinter
+            zipFile  = os.path.normpath(os.path.join("C:\\", "MV_HTML5","pacotes_gerados", 'soul-'+ os.path.basename(repo_dir)+ '-'+ type+'-'+ window_dir))
+            shutil.make_archive(zipFile,'zip', file_path)
+            messagebox.showinfo("Pacote gerado em: ", zipFile + '.zip')
 
-    zipFile  = os.path.normpath(os.path.join("C:\\", "MV_HTML5","pacotes_gerados", 'soul-'+ os.path.basename(repo_dir)+ '-'+ type+'-'+ window_dir))
-    # usar os.path.basename(repo_dir) para nome do modulo
+        else:
+            messagebox.showerror("ERRO", "Arquivo .class não foi encontrado")
+    else:
+        file_path = os.path.normpath(os.path.join(
+        repo_dir,
+        type, "target", "classes", "br", "com", "mv", "soul",
+        os.path.basename(repo_dir),
+        window_dir
+        ))
 
-    if (os.path.exists(file)):
-        text_output.insert(tk.END, "O arquivo " +  window_dir + file_extension + " está presente! Criando Pacote....")
+        text_output.insert(tk.END, "Criando pacote do dbservice...")
         text_output.see(tk.END)
         text_output.update()  # força atualização imediata do Tkinter
+        zipFile  = os.path.normpath(os.path.join("C:\\", "MV_HTML5","pacotes_gerados", 'soul-'+ os.path.basename(repo_dir)+ '-'+ type+'-'+ window_dir))
         shutil.make_archive(zipFile,'zip', file_path)
-        messagebox.showinfo("Pacote gerado em: ", zipFile)
-
-    else:
-        messagebox.showerror("ERRO", "Arquivo .class não foi encontrado")
-
+        messagebox.showinfo("Pacote gerado em: ", zipFile + '.zip')
 
 
 
