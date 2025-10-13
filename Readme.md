@@ -30,7 +30,7 @@ Caso precise atualizar o `.exe`, use o [PyInstaller](https://pyinstaller.org/):
 
 ```bash
 pip install pyinstaller
-pyinstaller --onefile gerador.py
+pyinstaller --onefile --noconsole --icon=icone.ico gerador_pacotes.py
 ```
 
 O executável será criado na pasta `dist/`.

@@ -4,3 +4,5 @@ novo/
 test/
 *.env*
 *.spec
+__pycache__/
+.vscode/

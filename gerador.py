@@ -7,6 +7,12 @@ import subprocess
 import shutil
 
 
+# ------ Variaveis Globais ----------
+
+command_succeeded = False
+
+# ------ Funções ------------------
+
 def select_repo():
     repo = filedialog.askdirectory()
     entry_repo_dir.delete(0, tk.END)
@@ -49,37 +55,6 @@ def load_windows(event:None):
     else:
         combobox_windows.set('')
 
-def run_commands(repo_dir: str, window: str, type: str):
-    sucess = False #Padrão False
-    os.chdir(repo_dir)
-        # colar old aqui
-    process = subprocess.Popen(
-        ["mvn", "clean", "install", "-U"],
-        stdout=subprocess.PIPE,
-        stderr=subprocess.STDOUT,
-        shell= True,
-        text=True,
-        bufsize=1
-    )
-
-    # Lê linha por linha enquanto o processo está rodando
-    for line in process.stdout:
-        if line == "[INFO] BUILD SUCCESS\n":
-            sucess = True
-        text_output.insert(tk.END, line)
-        text_output.see(tk.END)
-        text_output.update()  # força atualização imediata do Tkinter
-
-    process.wait()  # espera o processo terminar
-  
-
-    if sucess:
-        make_zip(repo_dir, window, type)
-        text_output.insert(tk.END, "\n[Processo finalizado]\n")
-        btn_process.config(state="normal")
-    else:   
-        messagebox.showerror("Erro", f"Ocorreu um erro! Pacote não gerado!!")
-        btn_process.config(state="normal")
 
 def process():
     btn_process.config(state="disabled")
@@ -99,7 +74,44 @@ def process():
         return
 
     text_output.delete("1.0", tk.END)
-    threading.Thread(target=run_commands, args=(repo_dir, window, type), daemon=True).start()
+    if force_maven_update_var.get():
+        command_thread = threading.Thread(target=run_commands, args=(repo_dir))
+
+
+        command_thread.start()
+        if command_succeeded:
+            make_zip(repo_dir, window, type)
+            write_log("\n[Processo finalizado]\n")
+        else:   
+            messagebox.showerror("Erro", f"Ocorreu um erro! Pacote não gerado!!")
+    else:
+        make_zip(repo_dir, window, type)
+        write_log("\n[Processo finalizado]\n")
+    btn_process.config(state="normal")
+    
+
+def run_commands(repo_dir: str):
+    global command_succeeded
+    os.chdir(repo_dir)
+    process = subprocess.Popen(
+        ["mvn", "clean", "install", "-U"],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        shell= True,
+        text=True,
+        bufsize=1
+    )
+
+    # Lê linha por linha enquanto o processo está rodando
+    for line in process.stdout:
+        if line == "[INFO] BUILD SUCCESS\n":
+            command_succeeded = True
+        write_log(line)
+
+    process.wait()  # espera o processo terminar
+  
+
+
 
 
 def make_zip(repo_dir: str, window_dir: str, type: str):
@@ -129,9 +141,7 @@ def make_zip(repo_dir: str, window_dir: str, type: str):
 
         ))
         if (os.path.exists(file)):
-            text_output.insert(tk.END, "O arquivo " +  window_dir + file_extension + " está presente! Criando Pacote....")
-            text_output.see(tk.END)
-            text_output.update()  # força atualização imediata do Tkinter
+            write_log("O arquivo " +  window_dir + file_extension + " está presente! Criando Pacote....")
             zipFile  = os.path.normpath(os.path.join("C:\\", "MV_HTML5","pacotes_gerados", 'soul-'+ os.path.basename(repo_dir)+ '-'+ type+'-'+ window_dir))
             shutil.make_archive(zipFile,'zip', file_path)
             messagebox.showinfo("Pacote gerado em: ", zipFile + '.zip')
@@ -146,55 +156,99 @@ def make_zip(repo_dir: str, window_dir: str, type: str):
         window_dir
         ))
 
-        text_output.insert(tk.END, "Criando pacote do dbservice...")
-        text_output.see(tk.END)
-        text_output.update()  # força atualização imediata do Tkinter
+        write_log("Criando pacote do dbservice...")
         zipFile  = os.path.normpath(os.path.join("C:\\", "MV_HTML5","pacotes_gerados", 'soul-'+ os.path.basename(repo_dir)+ '-'+ type+'-'+ window_dir))
         shutil.make_archive(zipFile,'zip', file_path)
         messagebox.showinfo("Pacote gerado em: ", zipFile + '.zip')
 
+def write_log(txt: str):
+    text_output.insert(tk.END, txt)
+    text_output.see(tk.END)
+    text_output.update() # força atualização imediata do Tkinter
 
 
 # --- Interface ---
 root = tk.Tk()
+root.iconbitmap("icone.ico")
 root.title("Gerador de pacote HTML5")
+root.geometry("650x600") # Tamanho inicial da janela
 
-# Frame para entrada do repositório
-frame_repo = tk.Frame(root)
-frame_repo.pack(pady=5, fill="x")
+# Configura o grid para expandir com a janela
+root.columnconfigure(0, weight=1)
+root.rowconfigure(3, weight=2) # A linha do Text de saída vai expandir
 
-tk.Label(frame_repo, text="Selecione a pasta do repositório:").pack(anchor="w")
+# --- Widgets ---
 
-frame_entry = tk.Frame(frame_repo)
-frame_entry.pack(fill="x")
+# Frame principal para melhor organização
+main_frame = tk.Frame(root, padx=10, pady=10)
+main_frame.grid(row=0, column=0, sticky="nsew")
+main_frame.columnconfigure(1, weight=1) # Permite que a coluna do Entry expanda
 
-entry_repo_dir = tk.Entry(frame_entry, width=78)
-entry_repo_dir.pack(side="left")
+# 1. SELEÇÃO DO REPOSITÓRIO (Linha 0)
+label_repo = tk.Label(main_frame, text="Selecione a pasta do repositório:")
+label_repo.grid(row=0, column=0, columnspan=2, sticky="w", pady=(0, 2))
 
-# Botão com ícone unicode (📂)
-btn_repo = tk.Button(frame_entry, text="📂", font=("Arial", 12) ,command=select_repo)
-btn_repo.pack(side="left")
+entry_repo_dir = tk.Entry(main_frame)
+entry_repo_dir.grid(row=1, column=0, columnspan=2, sticky="ew")
 
-# Label do tipo
-tk.Label(root, text="Selecione o tipo:").pack(anchor="w")
+btn_repo = tk.Button(main_frame, text="📂", font=("Arial", 12), command=select_repo)
+btn_repo.grid(row=1, column=2, sticky="w", padx=(5, 0))
+
+
+# 2. SELEÇÃO DE TIPO E PACOTE (Lado a Lado na Linha 2)
+# Frame para agrupar os combos
+frame_combos = tk.Frame(main_frame)
+frame_combos.grid(row=2, column=0, columnspan=3, sticky='ew', pady=10)
+frame_combos.columnconfigure(0, weight=1) # Coluna do Tipo
+frame_combos.columnconfigure(1, weight=2) # Coluna do Pacote (maior)
+
+# -- Tipo --
+label_type = tk.Label(frame_combos, text="Selecione o tipo:")
+label_type.grid(row=0, column=0, sticky='w')
+
 tipos = ["forms", "reports", 'libs']
-combo_type = ttk.Combobox(root, values=tipos, state="readonly")
-combo_type.pack(fill="x", padx=5)
+combo_type = ttk.Combobox(frame_combos, values=tipos, state="readonly")
+combo_type.grid(row=1, column=0, sticky='ew', padx=(0, 10))
 combo_type.bind("<<ComboboxSelected>>", load_windows)
 
-# Label e combobox dos pacotes
-tk.Label(root, text="Selecione o pacote:").pack(anchor="w")
-combobox_windows = ttk.Combobox(root, width=80, state="readonly")
-combobox_windows.pack(fill="x", padx=5)
+# -- Pacote --
+label_package = tk.Label(frame_combos, text="Selecione o pacote:")
+label_package.grid(row=0, column=1, sticky='w')
 
-# Botão processar
-btn_process = tk.Button(root, text="Processar", command=process)
-btn_process.pack(pady=10)
+combobox_windows = ttk.Combobox(frame_combos, state="readonly")
+combobox_windows.grid(row=1, column=1, sticky='ew')
 
-# Saída de texto
-text_output = tk.Text(root, width=80, height=30)
-text_output.pack(pady=5)
 
-#variaveis globais:
+# 3. CHECKBOX (Linha 3)
+# Variável booleana para o Checkbox
+force_maven_update_var = tk.BooleanVar(value=True) # Inicia marcado como padrão
 
+check_maven = ttk.Checkbutton(
+    main_frame,
+    text="Force Update Maven",
+    variable=force_maven_update_var
+)
+check_maven.grid(row=3, column=0, columnspan=2, sticky='w', pady=5)
+
+
+# 4. BOTÃO PROCESSAR (Linha 4)
+btn_process = tk.Button(main_frame, text="Processar", command=process)
+btn_process.grid(row=4, column=0, columnspan=3, pady=10)
+
+
+# 5. ÁREA DE TEXTO (Saída) (Linha 5)
+text_output = tk.Text(main_frame, height=15) # A altura agora é mais flexível
+text_output.grid(row=5, column=0, columnspan=3, sticky="nsew")
+
+# Adiciona uma scrollbar à área de texto
+scrollbar = ttk.Scrollbar(main_frame, orient='vertical', command=text_output.yview)
+scrollbar.grid(row=5, column=3, sticky='ns')
+text_output['yscrollcommand'] = scrollbar.set
+
+
+# Configura o grid do frame principal para expandir
+main_frame.rowconfigure(5, weight=1)
+main_frame.columnconfigure(1, weight=1)
+
+# --- Loop Principal ---
 root.mainloop()
