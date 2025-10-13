@@ -1,4 +1,5 @@
 import os
+import sys
 import threading
 import tkinter as tk
 from tkinter import filedialog, messagebox
@@ -74,11 +75,30 @@ def process():
         return
 
     text_output.delete("1.0", tk.END)
+    
     if force_maven_update_var.get():
-        command_thread = threading.Thread(target=run_commands, args=(repo_dir))
+        write_log("\n[Aguardando conclusão do Maven...]\n")
+        
+        # -------- Executa comandos ---------
+        os.chdir(repo_dir)
+        process = subprocess.Popen(
+            ["mvn", "clean", "install", "-U"],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            shell= True,
+            text=True,
+            bufsize=1
+        )
+
+        # Lê linha por linha enquanto o processo está rodando
+        for line in process.stdout:
+            if line == "[INFO] BUILD SUCCESS\n":
+                command_succeeded = True
+            write_log(line)
+
+        process.wait()  # espera o processo terminar
 
 
-        command_thread.start()
         if command_succeeded:
             make_zip(repo_dir, window, type)
             write_log("\n[Processo finalizado]\n")
@@ -88,28 +108,6 @@ def process():
         make_zip(repo_dir, window, type)
         write_log("\n[Processo finalizado]\n")
     btn_process.config(state="normal")
-    
-
-def run_commands(repo_dir: str):
-    global command_succeeded
-    os.chdir(repo_dir)
-    process = subprocess.Popen(
-        ["mvn", "clean", "install", "-U"],
-        stdout=subprocess.PIPE,
-        stderr=subprocess.STDOUT,
-        shell= True,
-        text=True,
-        bufsize=1
-    )
-
-    # Lê linha por linha enquanto o processo está rodando
-    for line in process.stdout:
-        if line == "[INFO] BUILD SUCCESS\n":
-            command_succeeded = True
-        write_log(line)
-
-    process.wait()  # espera o processo terminar
-  
 
 
 
@@ -169,7 +167,18 @@ def write_log(txt: str):
 
 # --- Interface ---
 root = tk.Tk()
-root.iconbitmap("icone.ico")
+# --- Detecta o caminho correto mesmo no executável ---
+if getattr(sys, 'frozen', False):
+    # Caminho quando o app está empacotado pelo PyInstaller
+    base_path = sys._MEIPASS
+else:
+    # Caminho normal durante o desenvolvimento
+    base_path = os.path.dirname(__file__)
+
+icon_path = os.path.join(base_path, "icone.ico")
+
+# Aplica o ícone (sem depender do arquivo local no runtime)
+root.iconbitmap(icon_path)
 root.title("Gerador de pacote HTML5")
 root.geometry("650x600") # Tamanho inicial da janela
 
