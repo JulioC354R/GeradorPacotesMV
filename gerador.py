@@ -7,11 +7,6 @@ from tkinter import ttk
 import subprocess
 import shutil
 
-
-# ------ Variaveis Globais ----------
-
-command_succeeded = False
-
 # ------ Funções ------------------
 
 def select_repo():
@@ -62,6 +57,7 @@ def process():
     repo_dir = entry_repo_dir.get()
     window = combobox_windows.get()
     type = combo_type.get()
+
     
 
     if not repo_dir:
@@ -78,7 +74,7 @@ def process():
     
     if force_maven_update_var.get():
         write_log("\n[Aguardando conclusão do Maven...]\n")
-        
+        command_succeeded = False
         # -------- Executa comandos ---------
         os.chdir(repo_dir)
         process = subprocess.Popen(
