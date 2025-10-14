@@ -72,38 +72,49 @@ def process():
 
     text_output.delete("1.0", tk.END)
     
-    if force_maven_update_var.get():
-        write_log("\n[Aguardando conclusão do Maven...]\n")
-        command_succeeded = False
-        # -------- Executa comandos ---------
-        os.chdir(repo_dir)
-        process = subprocess.Popen(
-            ["mvn", "clean", "install", "-U"],
-            stdout=subprocess.PIPE,
-            stderr=subprocess.STDOUT,
-            shell= True,
-            text=True,
-            bufsize=1
-        )
+    # Executa em thread separada para não travar a UI
+    thread = threading.Thread(target=run_process_thread, args=(repo_dir, window, type))
+    thread.start()
 
-        # Lê linha por linha enquanto o processo está rodando
-        for line in process.stdout:
-            if line == "[INFO] BUILD SUCCESS\n":
-                command_succeeded = True
-            write_log(line)
+def run_process_thread(repo_dir, window, type):
+    btn_process.config(state="disabled")
+    try:
+        if force_maven_update_var.get():
+            write_log("\n[Aguardando conclusão do Maven...]\n")
 
-        process.wait()  # espera o processo terminar
+            command_succeeded = False
+            os.chdir(repo_dir)
 
+            process = subprocess.Popen(
+                ["mvn", "clean", "install", "-U"],
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                shell=True,
+                text=True,
+                bufsize=1
+            )
 
-        if command_succeeded:
-            make_zip(repo_dir, window, type)
-            write_log("\n[Processo finalizado]\n")
-        else:   
-            messagebox.showerror("Erro", f"Ocorreu um erro! Pacote não gerado!!")
-    else:
-        make_zip(repo_dir, window, type)
-        write_log("\n[Processo finalizado]\n")
-    btn_process.config(state="normal")
+            # Lê o log sem travar a UI
+            for line in process.stdout:
+                # Usa after() para atualizar o log de forma segura na thread principal
+                root.after(0, write_log, line)
+                if "[INFO] BUILD SUCCESS" in line:
+                    command_succeeded = True
+
+            process.wait()
+
+            if command_succeeded:
+                root.after(0, write_log, "\n[Processo finalizado]\n")
+                root.after(0, make_zip, repo_dir, window, type)
+            else:
+                root.after(0, messagebox.showerror, "Erro", "Ocorreu um erro! Pacote não gerado!!")
+
+        else:
+            root.after(0, make_zip, repo_dir, window, type)
+            root.after(0, write_log, "\n[Processo finalizado]\n")
+
+    finally:
+        root.after(0, lambda: btn_process.config(state="normal"))
 
 
 
