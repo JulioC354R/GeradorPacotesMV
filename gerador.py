@@ -169,7 +169,6 @@ def make_zip(repo_dir: str, window_dir: str, type: str):
 def write_log(txt: str):
     text_output.insert(tk.END, txt)
     text_output.see(tk.END)
-    text_output.update() # força atualização imediata do Tkinter
 
 
 # --- Interface ---
