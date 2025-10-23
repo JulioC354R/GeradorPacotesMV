@@ -5,7 +5,7 @@ class HomePage(ft.Column):
     def __init__(self, page: ft.Page):
         super().__init__()
         self.page = page
-        self.repo_service = HomeService()
+        self.home_service = HomeService()
 
         # Campo de texto onde aparece a pasta escolhida
         self.repo_input = ft.TextField(
@@ -41,7 +41,9 @@ class HomePage(ft.Column):
             enable_search=True, # essas configs permitem que eu pesquise
             enable_filter=True,
             expand=True,
-            options=[ft.dropdown.Option(artefact) for artefact in self.repo_service.artefacts],
+            menu_height=300,
+            options=[],
+        
         )
         
 
@@ -55,11 +57,16 @@ class HomePage(ft.Column):
 
         
     def on_type_change(self, e):
-            self.repo_service.select_artefact_type( self.page, self.artefact_type.value)
+        self.home_service.select_artefact_type( self.page, self.artefact_type.value)
+        self.artefacts.options = [
+            ft.dropdown.Option(artefact) for artefact in self.home_service.artefacts_list
+        ]
+        self.artefacts.value = None  # limpa seleção antiga, se quiser
+        self.artefacts.update() 
 
     def on_select_repo(self, e):
         """Chama o serviço pra selecionar pasta."""
-        self.repo_service.select_repo(self.page, callback=self.update_repo_input)
+        self.home_service.select_repo(self.page, callback=self.update_repo_input)
 
     def update_repo_input(self, path: str):
         """Atualiza o campo com o caminho escolhido."""
