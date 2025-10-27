@@ -152,17 +152,17 @@ class HomePage(ft.Column):
 
         # Validações
         if not self.repo_input.value:
-            Utils.show_error(self.page,"Selecione um repositório.")
+            Utils.show_message(self.page,"Selecione um repositório.")
             return
 
         if not self.artefact_type.value:
-            Utils.show_error(self.page,"Selecione um tipo de artefato.")
+            Utils.show_message(self.page,"Selecione um tipo de artefato.")
             return
 
         if not self.home_service.selected_artefacts:
-            Utils.show_error(self.page,"Selecione ao menos um artefato.")
+            Utils.show_message(self.page,"Selecione ao menos um artefato.")
             return
 
         # Se passou todas as validações, abre a tela de logs
         self.page.controls.clear()
-        self.page.add(ProcessPage(self.page, self.home_service.selected_artefacts))
+        self.page.add(ProcessPage(self.page, self.home_service))

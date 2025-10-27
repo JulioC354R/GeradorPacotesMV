@@ -44,7 +44,7 @@ class HomeService:
         """Define o tipo e busca os artefatos do diretório correspondente."""
         self.artefact_type = artefact_type
         if not self.repo_path:
-            Utils.show_error(page, "Selecione um repositório primeiro!")
+            Utils.show_message(page, "Selecione um repositório primeiro!")
             return
 
         base_path = os.path.normpath(os.path.join(
@@ -55,7 +55,7 @@ class HomeService:
         ))
 
         if not os.path.exists(base_path):
-            Utils.show_error(page, "Esse caminho não é válido!\nSelecione a base do repositório.")
+            Utils.show_message(page, "Esse caminho não é válido!\nSelecione a base do repositório.")
             self.artefacts_list = []
             return
 
@@ -73,7 +73,6 @@ class HomeService:
         """Adiciona um artefato à lista se ainda não estiver presente."""
         if artefact not in self.selected_artefacts:
             self.selected_artefacts.append(artefact)
-            print(self.selected_artefacts)
 
     def remove_artefact(self, artefact: Artefact):
         """Remove um artefato da lista."""
