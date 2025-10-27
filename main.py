@@ -1,6 +1,5 @@
 import flet as ft
 from ui.home import HomePage
-from services.home_services import HomeService
 
 def main(page: ft.Page):
     page.title = "Gerador de Pacotes HTML5"

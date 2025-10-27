@@ -1,12 +1,15 @@
 import flet as ft
 from services.home_services import HomeService
-
+from services.utils import Utils
+from ui.process import ProcessPage
 
 class HomePage(ft.Column):
     def __init__(self, page: ft.Page):
         super().__init__()
         self.page = page
         self.home_service = HomeService()
+        self.utils = Utils()
+
         
         # Campo de texto onde aparece a pasta escolhida
         self.repo_input = ft.TextField(
@@ -53,14 +56,36 @@ class HomePage(ft.Column):
             columns=12,
         )
 
+          # Botão de processar
+        self.btn_process = ft.ElevatedButton(
+            text="Processar",
+            icon=ft.Icons.PLAY_ARROW,
+            style=ft.ButtonStyle(
+                color=ft.Colors.WHITE,
+                bgcolor=ft.Colors.GREEN_600,
+            ),
+            on_click=self.on_process_click,
+        )
+
+
         # Montagem dos componentes
         self.controls = [
-            ft.Row([self.repo_input, self.btn_select_repo]),
-            ft.Row([self.artefact_type, self.artefacts]),
-            ft.Text("Artefatos selecionados:"),
-            self.selected_container,
+            ft.Column(
+                [
+                    ft.Row([self.repo_input, self.btn_select_repo]),
+                    ft.Row([self.artefact_type, self.artefacts]),
+                    ft.Text("Artefatos selecionados:"),
+                    self.selected_container,
+                ],
+                expand=True,  # ocupa o espaço vertical restante
+            ),
+            ft.Container(
+                content=self.btn_process,
+                alignment=ft.alignment.center_right,
+                padding=ft.padding.only(top=10, bottom=10),
+            ),
         ]
-
+        self.expand = True
     # -------------------------------------------------
     # EVENTOS DE UI
     # -------------------------------------------------
@@ -121,3 +146,23 @@ class HomePage(ft.Column):
             for a in self.home_service.selected_artefacts
         ]
         self.selected_container.update()
+
+    def on_process_click(self, e):
+        """Abre a janela de logs e inicia o processamento."""
+
+        # Validações
+        if not self.repo_input.value:
+            Utils.show_error(self.page,"Selecione um repositório.")
+            return
+
+        if not self.artefact_type.value:
+            Utils.show_error(self.page,"Selecione um tipo de artefato.")
+            return
+
+        if not self.home_service.selected_artefacts:
+            Utils.show_error(self.page,"Selecione ao menos um artefato.")
+            return
+
+        # Se passou todas as validações, abre a tela de logs
+        self.page.controls.clear()
+        self.page.add(ProcessPage(self.page, self.home_service.selected_artefacts))
