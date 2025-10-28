@@ -1,13 +1,17 @@
 from dataclasses import dataclass
 import os
+from pathlib import Path
+import subprocess
 import flet as ft
 from services.utils import Utils
+import shutil
 
 @dataclass
 class Artefact:
     name: str
-    module:str
+    type:str
     path: str
+    build_path: str
 
 
 
@@ -15,6 +19,7 @@ class HomeService:
     """Camada de lógica de negócio da HomePage."""
 
     def __init__(self):
+        self.destiny_path = 'C:\\MV_HTML5\\pacotes_gerados'
         self.repo_path: str | None = None
         self.artefact_type: str = ""
         self.artefacts_list: list[Artefact] = []
@@ -61,7 +66,27 @@ class HomeService:
 
         # Aqui criamos objetos Artefact ao invés de strings
         self.artefacts_list = [
-            Artefact(name=f, path=os.path.join(base_path, f), module= artefact_type.lower())
+            Artefact(
+                name=f,
+                type=artefact_type.lower(),
+                path=os.path.join(base_path, f),
+                build_path=os.path.normpath(
+                    os.path.join(
+                        self.repo_path,
+                        artefact_type.lower(),
+                        "target",
+                        "classes",
+                        "br",
+                        "com",
+                        "mv",
+                        "soul",
+                        os.path.basename(self.repo_path),
+                        artefact_type.lower(),
+                        f.lower()
+                    )
+                )
+                
+            )
             for f in os.listdir(base_path)
             if os.path.isdir(os.path.join(base_path, f))
         ]
@@ -78,3 +103,42 @@ class HomeService:
         """Remove um artefato da lista."""
         if artefact in self.selected_artefacts:
             self.selected_artefacts.remove(artefact)
+
+
+    
+
+    def process_artefact(self, artefact: Artefact):
+        dest_dir = os.path.join(self.destiny_path, 
+                                'tmp',
+                                artefact.type,
+                                'soul-'+ os.path.basename(self.repo_path) + '-'+ artefact.type.lower()+'-'+ artefact.name)
+        shutil.copytree(artefact.build_path, dest_dir, dirs_exist_ok=True)
+        pass
+
+
+    def check_build(self, build_path: str, type_str: str):
+        path = Path(build_path)
+        has_class = any(path.rglob("*.class"))
+        return has_class
+
+    def mvn_clean_install(self, on_log=None):
+        os.chdir(self.repo_path)
+        command_succeeded = False
+
+        process = subprocess.Popen(
+            ["cmd", "/c","mvn", "clean", "install", "-U"],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
+            bufsize=1
+        )
+
+        for line in process.stdout:
+            if on_log:
+                on_log(line)  # envia o log para o callback
+            if "[INFO] BUILD SUCCESS" in line:
+                command_succeeded = True
+
+        process.wait()
+        return command_succeeded
+                

@@ -1,7 +1,6 @@
 import flet as ft
 from services.home_services import HomeService
 from services.utils import Utils
-from ui.process import ProcessPage
 
 class HomePage(ft.Column):
     def __init__(self, page: ft.Page):
@@ -164,5 +163,85 @@ class HomePage(ft.Column):
             return
 
         # Se passou todas as validações, abre a tela de logs
-        self.page.controls.clear()
-        self.page.add(ProcessPage(self.page, self.home_service))
+        # Cria uma barra de progresso e adiciona na UI
+        self.progress_bar = ft.ProgressBar(width=400, value=0)
+        self.progress_text = ft.Text("Iniciando processamento...", size=14)
+        self.page.overlay.append(
+            ft.AlertDialog(
+                modal=True,
+                title=ft.Text("Processando artefatos"),
+                content=ft.Column(
+                    [self.progress_text, self.progress_bar],
+                    tight=True,
+                    horizontal_alignment=ft.CrossAxisAlignment.CENTER
+                ),
+            )
+        )
+
+        dialog = self.page.overlay[-1]
+        dialog.open = True
+        self.page.update()
+
+
+        # Inicia o processamento em background
+        def process_task():
+            mvn_sucess = True
+            total = len(self.home_service.selected_artefacts)
+
+            # Cria campo de log dentro do diálogo
+            log_field = ft.ListView(
+            expand=True,
+            auto_scroll=True,   # faz o scroll automático pro final
+            height=200,
+            spacing=3,
+            padding=ft.padding.all(8),
+            )
+            # adiciona a primeira linha de log
+            log_field.controls.append(ft.Text("Iniciando processamento..."))
+            dialog.content.controls.append(log_field)
+            dialog.update()
+            self.page.update()
+
+            def append_log(line: str):
+                # remove quebra de linha e adiciona como novo Text
+                log_field.controls.append(ft.Text(line.strip()))
+                # evita crescimento infinito (opcional)
+                if len(log_field.controls) > 1000:
+                    log_field.controls.pop(0)
+                log_field.update()
+
+            for i, artefact in enumerate(self.home_service.selected_artefacts, start=1):
+                self.progress_text.value = f"Processando {artefact.name} ({i}/{total})..."
+                self.progress_bar.value = i / total +1
+                self.page.update()
+
+                if not self.home_service.check_build(artefact.build_path, artefact.type): # Se não tiver arquivo de build, rodar mvn clean install
+                    self.progress_text.value = f"Executando mvn clean install..."
+                    self.page.update()
+                    mvn_sucess = self.home_service.mvn_clean_install(on_log=append_log)
+                    if not mvn_sucess:
+                        break
+
+                self.home_service.process_artefact(artefact)
+
+            # Finaliza
+
+            self.progress_text.value = "Processamento concluído!"
+            self.progress_bar.value = 1.0
+
+
+
+            self.page.update()
+            import time
+            time.sleep(1)
+            dialog.open = False
+            self.page.update()
+
+            Utils.show_message(
+                self.page,
+                "Processamento concluído!" if mvn_sucess else "GERAÇÃO FALHOU!",
+                "",
+            )
+
+        # Roda em thread para não travar a UI
+        self.page.run_thread(process_task)
