@@ -1,4 +1,5 @@
 import os
+import sys
 import flet as ft
 from ui.home import HomePage
 
@@ -8,6 +9,14 @@ def main(page: ft.Page):
     page.window.resizable = True 
     page.window.width = 800
     page.window.height = 600
+    if getattr(sys, 'frozen', False):
+    # Caminho quando o app está empacotado pelo PyInstaller
+        base_path = sys._MEIPASS
+    else:
+        # Caminho normal durante o desenvolvimento
+        base_path = os.path.dirname(__file__)
+    icon_path = os.path.join(base_path, "icone_menhera-kun.ico")
+    page.window.icon = icon_path
 
     # Cria a tela principal (importada de ui/home.py)
     home = HomePage(page)

@@ -107,13 +107,27 @@ class HomeService:
 
     
 
-    def process_artefact(self, artefact: Artefact):
-        dest_dir = os.path.join(self.destiny_path, 
-                                'tmp',
-                                artefact.type,
-                                'soul-'+ os.path.basename(self.repo_path) + '-'+ artefact.type.lower()+'-'+ artefact.name)
+    def process_artefact(self, artefact: Artefact, jira: str | None, cervello: str | None, client: str | None):
+        pack_name ='soul-'+ os.path.basename(self.repo_path) + '-'+ artefact.type.lower()
+        if jira:
+            pack_name+= '_' + jira
+        if cervello:
+            pack_name += '_' + cervello
+        if client:
+            pack_name += '_' + client 
+
+        dest_dir = os.path.join(self.destiny_path, 'tmp', pack_name,  artefact.name)
         shutil.copytree(artefact.build_path, dest_dir, dirs_exist_ok=True)
-        pass
+        
+    def zip_packages(self):
+        dirs = os.listdir(os.path.join(self.destiny_path, 'tmp'))
+        for item in dirs:
+            item_path = os.path.join(self.destiny_path, 'tmp', item)
+            zip_path = os.path.join(self.destiny_path, item)
+            shutil.make_archive(zip_path,'zip', item_path)
+        
+        shutil.rmtree(os.path.join(self.destiny_path, 'tmp'))
+
 
 
     def check_build(self, build_path: str, type_str: str):

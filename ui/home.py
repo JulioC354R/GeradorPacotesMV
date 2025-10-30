@@ -1,3 +1,4 @@
+import re
 import flet as ft
 from services.home_services import HomeService
 from services.utils import Utils
@@ -8,6 +9,8 @@ class HomePage(ft.Column):
         self.page = page
         self.home_service = HomeService()
         self.utils = Utils()
+         # Expressão regular para remover caracteres inválidos
+        self.invalid_chars_pattern = re.compile(r'[\/\\\:\*\?\"\<\>\|]')
 
         
         # Campo de texto onde aparece a pasta escolhida
@@ -67,17 +70,48 @@ class HomePage(ft.Column):
         )
 
 
+        self.jira_code = ft.TextField(
+            label="Código do Jira",
+            expand=True,
+            max_length=20,
+            on_change=self.validate_input,
+        )
+        self.cervello_code = ft.TextField(
+            label="Código do Cervello",
+            expand=True,
+            max_length=20,
+            on_change=self.validate_input,
+        )
+        self.client_code = ft.TextField(
+            label="Código do Cliente",
+            expand=True,
+            max_length=20,
+            on_change=self.validate_input,
+        )
+        
+
+
         # Montagem dos componentes
         self.controls = [
             ft.Column(
                 [
                     ft.Row([self.repo_input, self.btn_select_repo]),
                     ft.Row([self.artefact_type, self.artefacts]),
+                    ft.Row(
+                        controls=[
+                            self.jira_code,
+                            self.cervello_code,
+                            self.client_code,
+                        ],
+                        spacing=10),
                     ft.Text("Artefatos selecionados:"),
                     self.selected_container,
                 ],
                 expand=True,  # ocupa o espaço vertical restante
+                
             ),
+            
+
             ft.Container(
                 content=self.btn_process,
                 alignment=ft.alignment.center_right,
@@ -222,7 +256,7 @@ class HomePage(ft.Column):
                     if not mvn_sucess:
                         break
 
-                self.home_service.process_artefact(artefact)
+                self.home_service.process_artefact(artefact, self.jira_code.value, self.cervello_code.value, self.client_code.value)
 
             # Finaliza
 
@@ -245,3 +279,13 @@ class HomePage(ft.Column):
 
         # Roda em thread para não travar a UI
         self.page.run_thread(process_task)
+
+    def validate_input(self, e: ft.ControlEvent):
+        """Remove caracteres inválidos automaticamente."""
+        txt_field = e.control
+        original_value = txt_field.value
+        cleaned_value = self.invalid_chars_pattern.sub("", original_value)
+
+        if cleaned_value != original_value:
+            txt_field.value = cleaned_value
+            self.page.update()
