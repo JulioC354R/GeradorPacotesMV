@@ -118,6 +118,7 @@ class HomeService:
 
         dest_dir = os.path.join(self.destiny_path, 'tmp', pack_name,  artefact.name)
         shutil.copytree(artefact.build_path, dest_dir, dirs_exist_ok=True)
+        self.zip_packages()
         
     def zip_packages(self):
         dirs = os.listdir(os.path.join(self.destiny_path, 'tmp'))
