@@ -15,7 +15,7 @@ def main(page: ft.Page):
     else:
         # Caminho normal durante o desenvolvimento
         base_path = os.path.dirname(__file__)
-    icon_path = os.path.join(base_path, "icone_menhera-kun.ico")
+    icon_path = os.path.join(base_path, "assets/icone_menhera-kun.ico")
     page.window.icon = icon_path
 
     # Cria a tela principal (importada de ui/home.py)
