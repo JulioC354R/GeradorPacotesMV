@@ -221,6 +221,7 @@ class HomePage(ft.Column):
         def process_task():
             mvn_sucess = True
             total = len(self.home_service.selected_artefacts)
+            self.home_service.clear_temp()
 
             # Cria campo de log dentro do diálogo
             log_field = ft.ListView(
@@ -259,7 +260,7 @@ class HomePage(ft.Column):
                 self.home_service.process_artefact(artefact, self.jira_code.value, self.cervello_code.value, self.client_code.value)
 
             # Finaliza
-
+            self.home_service.clear_temp()
             self.progress_text.value = "Processamento concluído!"
             self.progress_bar.value = 1.0
 

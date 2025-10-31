@@ -126,7 +126,8 @@ class HomeService:
             item_path = os.path.join(self.destiny_path, 'tmp', item)
             zip_path = os.path.join(self.destiny_path, item)
             shutil.make_archive(zip_path,'zip', item_path)
-        
+
+    def clear_temp(self):    
         shutil.rmtree(os.path.join(self.destiny_path, 'tmp'))
 
 
