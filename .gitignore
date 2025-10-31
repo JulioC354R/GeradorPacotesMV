@@ -6,3 +6,6 @@ test/
 *.spec
 __pycache__/
 .vscode/
+.venv/
+old/
+teste.py
