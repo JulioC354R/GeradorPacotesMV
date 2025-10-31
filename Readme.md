@@ -30,7 +30,7 @@ Caso precise atualizar o `.exe`, use o [PyInstaller](https://pyinstaller.org/):
 
 ```bash
 pip install pyinstaller
-python -m PyInstaller --onedir --noconsole --icon=assets/icone_menhera-kun.ico --add-data "assets:assets" main.py
+python -m PyInstaller --onefile --noconsole --icon=assets/icone_menhera-kun.ico --add-data "assets:assets" main.py
 ```
 
 O executável será criado na pasta `dist/`.
