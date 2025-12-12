@@ -3,8 +3,8 @@ import flet as ft
 from services.home_services import HomeService
 from services.utils import Utils
 
-class HomePage(ft.Column):
-    def __init__(self, page: ft.Page):
+class HomePage(ft.Column, ):
+    def __init__(self, page: ft.Page, btn_clear: ft.ElevatedButton ):
         super().__init__()
         self.page = page
         self.home_service = HomeService()
@@ -34,8 +34,9 @@ class HomePage(ft.Column):
             options=[
                 ft.dropdown.Option("Forms"),
                 ft.dropdown.Option("Reports"),
-                ft.dropdown.Option("Libs")
+                ft.dropdown.Option("Libs"),
             ],
+            value=None,
             on_change=self.on_type_change,
         )
 
@@ -43,11 +44,10 @@ class HomePage(ft.Column):
         self.artefacts = ft.Dropdown(
             label="Selecione o artefato",
             editable=True,
-            enable_search=True,
             enable_filter=True,
             expand=True,
             menu_height=300,
-            options=[],
+            value=None,
             on_change=self.on_artefact_selected,
         )
 
@@ -58,7 +58,7 @@ class HomePage(ft.Column):
             columns=12,
         )
 
-          # Botão de processar
+        # Botão de processar
         self.btn_process = ft.ElevatedButton(
             text="Processar",
             icon=ft.Icons.PLAY_ARROW,
@@ -68,6 +68,7 @@ class HomePage(ft.Column):
             ),
             on_click=self.on_process_click,
         )
+
 
 
         self.jira_code = ft.TextField(
@@ -113,7 +114,12 @@ class HomePage(ft.Column):
             
 
             ft.Container(
-                content=self.btn_process,
+                content=ft.Row(
+                    controls=[
+                        btn_clear, self.btn_process
+                    ],
+                    alignment=ft.MainAxisAlignment.END
+                ),
                 alignment=ft.alignment.center_right,
                 padding=ft.padding.only(top=10, bottom=10),
             ),
@@ -125,11 +131,13 @@ class HomePage(ft.Column):
     def on_select_repo(self, e):
         """Abre seletor de pasta e atualiza o campo na UI."""
         self.home_service.select_repo(self.page, callback=self.update_repo_input)
+        self.home_service.artefacts_list = []
 
     def update_repo_input(self, path: str):
         """Atualiza o campo com o caminho escolhido."""
         self.repo_input.value = path
         self.repo_input.update()
+        self.on_type_change("")
 
     def on_type_change(self, e):
         """Quando muda o tipo de artefato, carrega as opções."""
@@ -272,11 +280,18 @@ class HomePage(ft.Column):
             dialog.open = False
             self.page.update()
 
-            Utils.show_message(
-                self.page,
-                "Processamento concluído!" if mvn_sucess else "GERAÇÃO FALHOU!",
-                "",
-            )
+            if mvn_sucess:
+                Utils.show_message(
+                    self.page,
+                    "Processamento concluído!", "",
+                )
+                self.home_service.open_destiny_path()
+            else:
+                Utils.show_message(
+                    self.page,
+                    "GERAÇÃO FALHOU!"
+                )
+            
 
         # Roda em thread para não travar a UI
         self.page.run_thread(process_task)
