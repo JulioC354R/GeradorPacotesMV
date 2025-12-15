@@ -18,8 +18,25 @@ def main(page: ft.Page):
     icon_path = os.path.join(base_path, "assets/icone_menhera-kun.ico")
     page.window.icon = icon_path
 
+    def reload_page(e):
+        page.controls.clear()
+        home = HomePage(page, btn_clear)  # captura o retorno
+        page.add(home)                     # adiciona à página
+        page.update()
+
     # Cria a tela principal (importada de ui/home.py)
-    home = HomePage(page)
+
+    # Botão de Limpar
+    btn_clear = ft.ElevatedButton(
+        text="Limpar",
+        icon=ft.Icons.CLEAR,
+        style=ft.ButtonStyle(
+            color=ft.Colors.WHITE,
+            bgcolor=ft.Colors.RED_600,
+        ),
+        on_click=reload_page,
+    )
+    home = HomePage(page, btn_clear)
     page.add(home)
 
 

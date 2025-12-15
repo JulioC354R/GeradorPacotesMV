@@ -11,6 +11,7 @@ class Artefact:
     name: str
     type:str
     path: str
+    module: str
     build_path: str
 
 
@@ -70,6 +71,7 @@ class HomeService:
                 name=f,
                 type=artefact_type.lower(),
                 path=os.path.join(base_path, f),
+                module=os.path.basename(self.repo_path),
                 build_path=os.path.normpath(
                     os.path.join(
                         self.repo_path,
@@ -108,7 +110,7 @@ class HomeService:
     
 
     def process_artefact(self, artefact: Artefact, jira: str | None, cervello: str | None, client: str | None):
-        pack_name ='soul-'+ os.path.basename(self.repo_path) + '-'+ artefact.type.lower()
+        pack_name ='soul-'+ artefact.module + '-'+ artefact.type.lower()
         if jira:
             pack_name+= '_' + jira
         if cervello:
@@ -159,4 +161,10 @@ class HomeService:
 
         process.wait()
         return command_succeeded
-                
+    
+    def open_destiny_path(self):
+        subprocess.Popen(
+            ["explorer.exe", r"C:\MV_HTML5\pacotes_gerados"],
+            stdout=subprocess.PIPE,
+            bufsize=1
+        )
