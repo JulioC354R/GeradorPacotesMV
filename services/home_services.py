@@ -1,6 +1,7 @@
 from dataclasses import dataclass
 import os
 from pathlib import Path
+import re
 import subprocess
 import flet as ft
 from services.utils import Utils
@@ -117,6 +118,8 @@ class HomeService:
             pack_name += '_' + cervello
         if client:
             pack_name += '_' + client 
+            
+        pack_name += re.sub(r'[<>:"/\\|?*\x00-\x1F]', '', pack_name)
 
         dest_dir = os.path.join(self.destiny_path, 'tmp', pack_name,  artefact.name)
         shutil.copytree(artefact.build_path, dest_dir, dirs_exist_ok=True)
