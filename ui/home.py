@@ -3,16 +3,18 @@ import flet as ft
 from services.home_services import HomeService
 from services.utils import Utils
 
-class HomePage(ft.Column, ):
-    def __init__(self, page: ft.Page, btn_clear: ft.ElevatedButton ):
+
+class HomePage(
+    ft.Column,
+):
+    def __init__(self, page: ft.Page, btn_clear: ft.ElevatedButton):
         super().__init__()
         self.page = page
         self.home_service = HomeService()
         self.utils = Utils()
-         # Expressão regular para remover caracteres inválidos
-        self.invalid_chars_pattern = re.compile(r'[\/\\\:\*\?\"\<\>\|]')
+        # Expressão regular para remover caracteres inválidos
+        self.invalid_chars_pattern = re.compile(r"[\/\\\:\*\?\"\<\>\|]")
 
-        
         # Campo de texto onde aparece a pasta escolhida
         self.repo_input = ft.TextField(
             label="Pasta do repositório",
@@ -69,8 +71,6 @@ class HomePage(ft.Column, ):
             on_click=self.on_process_click,
         )
 
-
-
         self.jira_code = ft.TextField(
             label="Código do Jira",
             expand=True,
@@ -89,8 +89,6 @@ class HomePage(ft.Column, ):
             max_length=20,
             on_change=self.validate_input,
         )
-        
-
 
         # Montagem dos componentes
         self.controls = [
@@ -104,27 +102,24 @@ class HomePage(ft.Column, ):
                             self.cervello_code,
                             self.client_code,
                         ],
-                        spacing=10),
+                        spacing=10,
+                    ),
                     ft.Text("Artefatos selecionados:"),
                     self.selected_container,
                 ],
                 expand=True,  # ocupa o espaço vertical restante
-                
             ),
-            
-
             ft.Container(
                 content=ft.Row(
-                    controls=[
-                        btn_clear, self.btn_process
-                    ],
-                    alignment=ft.MainAxisAlignment.END
+                    controls=[btn_clear, self.btn_process],
+                    alignment=ft.MainAxisAlignment.END,
                 ),
                 alignment=ft.alignment.center_right,
                 padding=ft.padding.only(top=10, bottom=10),
             ),
         ]
         self.expand = True
+
     # -------------------------------------------------
     # EVENTOS DE UI
     # -------------------------------------------------
@@ -148,7 +143,6 @@ class HomePage(ft.Column, ):
         self.artefacts.value = None
         self.artefacts.update()
 
-
     def on_artefact_selected(self, e):
         """Quando escolhe um artefato, adiciona à lista de selecionados."""
         selected_name = self.artefacts.value
@@ -158,7 +152,7 @@ class HomePage(ft.Column, ):
         # pega o objeto correspondente
         artefact = next(
             (a for a in self.home_service.artefacts_list if a.name == selected_name),
-            None
+            None,
         )
         if artefact is None:
             return
@@ -193,15 +187,15 @@ class HomePage(ft.Column, ):
 
         # Validações
         if not self.repo_input.value:
-            Utils.show_message(self.page,"Selecione um repositório.")
+            Utils.show_message(self.page, "Selecione um repositório.")
             return
 
         if not self.artefact_type.value:
-            Utils.show_message(self.page,"Selecione um tipo de artefato.")
+            Utils.show_message(self.page, "Selecione um tipo de artefato.")
             return
 
         if not self.home_service.selected_artefacts:
-            Utils.show_message(self.page,"Selecione ao menos um artefato.")
+            Utils.show_message(self.page, "Selecione ao menos um artefato.")
             return
 
         # Se passou todas as validações, abre a tela de logs
@@ -215,7 +209,7 @@ class HomePage(ft.Column, ):
                 content=ft.Column(
                     [self.progress_text, self.progress_bar],
                     tight=True,
-                    horizontal_alignment=ft.CrossAxisAlignment.CENTER
+                    horizontal_alignment=ft.CrossAxisAlignment.CENTER,
                 ),
             )
         )
@@ -223,7 +217,6 @@ class HomePage(ft.Column, ):
         dialog = self.page.overlay[-1]
         dialog.open = True
         self.page.update()
-
 
         # Inicia o processamento em background
         def process_task():
@@ -233,11 +226,11 @@ class HomePage(ft.Column, ):
 
             # Cria campo de log dentro do diálogo
             log_field = ft.ListView(
-            expand=True,
-            auto_scroll=True,   # faz o scroll automático pro final
-            height=200,
-            spacing=3,
-            padding=ft.padding.all(8),
+                expand=True,
+                auto_scroll=True,  # faz o scroll automático pro final
+                height=200,
+                spacing=3,
+                padding=ft.padding.all(8),
             )
             # adiciona a primeira linha de log
             log_field.controls.append(ft.Text("Iniciando processamento..."))
@@ -254,28 +247,36 @@ class HomePage(ft.Column, ):
                 log_field.update()
 
             for i, artefact in enumerate(self.home_service.selected_artefacts, start=1):
-                self.progress_text.value = f"Processando {artefact.name} ({i}/{total})..."
-                self.progress_bar.value = i / total +1
+                self.progress_text.value = (
+                    f"Processando {artefact.name} ({i}/{total})..."
+                )
+                self.progress_bar.value = i / total + 1
                 self.page.update()
 
-                if not self.home_service.check_build(artefact.build_path, artefact.type): # Se não tiver arquivo de build, rodar mvn clean install
+                if not self.home_service.check_build(
+                    artefact.build_path
+                ):  # Se não tiver arquivo de build, rodar mvn clean install
                     self.progress_text.value = f"Executando mvn clean install..."
                     self.page.update()
                     mvn_sucess = self.home_service.mvn_clean_install(on_log=append_log)
                     if not mvn_sucess:
                         break
 
-                self.home_service.process_artefact(artefact, self.jira_code.value, self.cervello_code.value, self.client_code.value)
+                self.home_service.process_artefact(
+                    artefact,
+                    self.jira_code.value,
+                    self.cervello_code.value,
+                    self.client_code.value,
+                )
 
             # Finaliza
             self.home_service.clear_temp()
             self.progress_text.value = "Processamento concluído!"
             self.progress_bar.value = 1.0
 
-
-
             self.page.update()
             import time
+
             time.sleep(1)
             dialog.open = False
             self.page.update()
@@ -283,15 +284,12 @@ class HomePage(ft.Column, ):
             if mvn_sucess:
                 Utils.show_message(
                     self.page,
-                    "Processamento concluído!", "",
+                    "Processamento concluído!",
+                    "",
                 )
                 self.home_service.open_destiny_path()
             else:
-                Utils.show_message(
-                    self.page,
-                    "GERAÇÃO FALHOU!"
-                )
-            
+                Utils.show_message(self.page, "GERAÇÃO FALHOU!")
 
         # Roda em thread para não travar a UI
         self.page.run_thread(process_task)
