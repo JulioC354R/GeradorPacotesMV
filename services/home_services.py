@@ -108,6 +108,36 @@ class HomeService:
             if os.path.isdir(os.path.join(base_path, f))
         ]
 
+        if artefact_type.lower() == "libs":
+            parent_folder = os.path.dirname(base_path)
+            libs_on_parent_folder = [
+                Artefact(
+                    name=f,
+                    type=artefact_type.lower(),
+                    path=os.path.join(parent_folder, f),
+                    module=os.path.basename(self.repo_path),
+                    build_path=os.path.normpath(
+                        os.path.join(
+                            self.repo_path,
+                            artefact_type.lower(),
+                            "target",
+                            "classes",
+                            "br",
+                            "com",
+                            "mv",
+                            "soul",
+                            os.path.basename(self.repo_path),
+                            f.lower(),
+                        )
+                    ),
+                )
+                for f in os.listdir(parent_folder)
+                if os.path.isdir(os.path.join(parent_folder, f))
+            ]
+
+            for item in libs_on_parent_folder:
+                self.artefacts_list.append(item)
+
     # -------------------------------------------------
     # MANIPULAÇÃO DE ARTEFATOS SELECIONADOS
     # -------------------------------------------------
