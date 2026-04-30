@@ -75,7 +75,7 @@ export default function App() {
 
   const handleArtefactAdd = useCallback((a: Artefact) => {
     setSelected((prev) =>
-      prev.find((x) => x.name === a.name && x.module === a.module)
+      prev.find((x) => x.path === a.path)
         ? prev
         : [...prev, a],
     );
@@ -83,7 +83,7 @@ export default function App() {
 
   const handleArtefactRemove = useCallback((a: Artefact) => {
     setSelected((prev) =>
-      prev.filter((x) => !(x.name === a.name && x.module === a.module)),
+      prev.filter((x) => x.path !== a.path),
     );
   }, []);
 

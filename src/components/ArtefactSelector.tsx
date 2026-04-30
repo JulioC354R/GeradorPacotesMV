@@ -55,7 +55,7 @@ export function ArtefactSelector({ artefactType, artefacts, onTypeChange, onArte
             ) : (
               filtered.map((a) => (
                 <button
-                  key={a.name}
+                  key={a.path}
                   onClick={() => {
                     onArtefactAdd(a)
                     setSearch("")
