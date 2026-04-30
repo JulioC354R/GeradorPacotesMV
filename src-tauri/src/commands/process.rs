@@ -105,22 +105,44 @@ pub async fn process_artefacts(
     let destiny_path = Path::new("C:\\MV_HTML5\\pacotes_gerados");
     let temp_path = destiny_path.join("tmp");
 
+    let mut process_log: Vec<String> = Vec::new();
+    let mut errors: Vec<String> = Vec::new();
+
+    process_log.push("Iniciando processamento...".to_string());
+    let _ = app.emit("log-line", "Iniciando processamento...");
+
+    let _ = app.emit("status", "Preparando diretório temporário...");
+    process_log.push(format!("Diretório de destino: {}", destiny_path.display()));
+
     if temp_path.exists() {
-        std::fs::remove_dir_all(&temp_path).map_err(|e| e.to_string())?;
+        if let Err(e) = std::fs::remove_dir_all(&temp_path) {
+            let msg = format!("ERRO ao limpar diretório temporário: {}", e);
+            process_log.push(msg.clone());
+            let _ = app.emit("log-line", &msg);
+            errors.push(e.to_string());
+        }
     }
-    std::fs::create_dir_all(&temp_path).map_err(|e| e.to_string())?;
+    if let Err(e) = std::fs::create_dir_all(&temp_path) {
+        let msg = format!("ERRO ao criar diretório temporário: {}", e);
+        process_log.push(msg.clone());
+        let _ = app.emit("log-line", &msg);
+        errors.push(e.to_string());
+        return Err(format!("Falha ao preparar diretório temporário: {}", e));
+    }
+    process_log.push(format!("Diretório temporário criado em: {}", temp_path.display()));
 
     let total = artefacts.len();
-    let mut mvn_success = true;
-    let mut process_log: Vec<String> = Vec::new();
+    process_log.push(format!("Total de artefato(s) a processar: {}", total));
 
     let mut all_major_classes: std::collections::BTreeMap<String, String> = std::collections::BTreeMap::new();
     let mut all_major_jars: std::collections::BTreeMap<String, Vec<(String, String)>> = std::collections::BTreeMap::new();
 
-    let first = artefacts.first().ok_or("Nenhum artefato selecionado")?;
+    let first = match artefacts.first() {
+        Some(f) => f,
+        None => return Err("Nenhum artefato selecionado".to_string()),
+    };
     let version = &first.version;
 
-    // Build zip name: SOULMV_{TORRE}_{VERSAO}_{CODIGO}_{DATA}
     let pasta_pai_upper = pasta_pai.to_uppercase();
     let codigo_part = codigo.as_deref().filter(|c| !c.is_empty());
     let today_str = today_ddmmmyyyy();
@@ -131,29 +153,43 @@ pub async fn process_artefacts(
     }
     pack_name.push_str(&format!("_{}", today_str));
 
-    // Sanitize
     pack_name = pack_name
         .chars()
         .filter(|c| !matches!(c, '<' | '>' | ':' | '"' | '/' | '\\' | '|' | '?' | '*' | '\0'..='\u{1f}'))
         .collect::<String>()
         .replace(' ', "");
 
-    // Group artifacts by module
+    process_log.push(format!("Nome do pacote: {}.zip", pack_name));
+
     let mut by_module: std::collections::BTreeMap<String, Vec<Artefact>> = std::collections::BTreeMap::new();
     for a in artefacts {
         by_module.entry(a.module.clone()).or_default().push(a);
     }
 
+    process_log.push(format!("Módulos identificados: {}", by_module.keys().cloned().collect::<Vec<_>>().join(", ")));
+
     for (module, module_artefacts) in &by_module {
         let repo_path_str = module_artefacts.first().map(|a| &*a.repo_path).unwrap_or("");
+        process_log.push(format!("[{}] Iniciando processamento do módulo...", module));
 
         for (i, artefact) in module_artefacts.iter().enumerate() {
             let status = format!("[{}] Processando {} ({}/{})...", module, artefact.name, i + 1, module_artefacts.len());
             process_log.push(status.clone());
             let _ = app.emit("status", &status);
+            let _ = app.emit("log-line", &status);
             let _ = app.emit("progress", ((i + 1) as f64 / total as f64) * 100.0);
 
             let build_path = Path::new(&artefact.build_path);
+
+            process_log.push(format!("[{}] Verificando build de {} em {}", module, artefact.name, build_path.display()));
+
+            if !build_path.exists() {
+                let msg = format!("[{}] AVISO: Caminho de build não encontrado para {}", module, artefact.name);
+                process_log.push(msg.clone());
+                let _ = app.emit("log-line", &msg);
+                errors.push(format!("Build path não existe: {}", build_path.display()));
+                continue;
+            }
 
             let has_class = WalkDir::new(build_path)
                 .into_iter()
@@ -161,18 +197,23 @@ pub async fn process_artefacts(
                 .any(|e| e.path().extension().is_some_and(|ext| ext == "class"));
 
             if !has_class {
-                let msg = format!("[{}] Executando mvn clean install...", module);
+                let msg = format!("[{}] Nenhum .class encontrado, executando mvn clean install -U em {}...", module, repo_path_str);
                 process_log.push(msg.clone());
                 let _ = app.emit("log-line", &msg);
                 let _ = app.emit("status", &msg);
-                mvn_success = run_mvn(&app, repo_path_str).await;
-                if !mvn_success {
-                    process_log.push(format!("[{}] ERRO: mvn clean install falhou!", module));
-                    break;
+                let mvn_ok = run_mvn(&app, repo_path_str).await;
+                if !mvn_ok {
+                    let msg = format!("[{}] ERRO: mvn clean install falhou para {}", module, artefact.name);
+                    process_log.push(msg.clone());
+                    let _ = app.emit("log-line", &msg);
+                    errors.push(msg);
+                    continue;
                 }
+                process_log.push(format!("[{}] mvn clean install concluído com sucesso para {}", module, artefact.name));
+            } else {
+                process_log.push(format!("[{}] Build já compilado, copiando artefato {}", module, artefact.name));
             }
 
-            // Build output: {pack_name}/{PASTA_PAI}/{module}/{type}/{artefact}
             let artefact_dest = temp_path
                 .join(&pack_name)
                 .join(&pasta_pai_upper)
@@ -181,28 +222,51 @@ pub async fn process_artefacts(
                 .join(&artefact.name);
 
             if build_path.exists() {
-                copy_dir_recursively(build_path, &artefact_dest).map_err(|e| e.to_string())?;
-                let msg = format!("Copiado: {}", artefact.name);
-                process_log.push(msg.clone());
-                let _ = app.emit("log-line", &msg);
+                match copy_dir_recursively(build_path, &artefact_dest) {
+                    Ok(_) => {
+                        let msg = format!("[{}] Copiado: {} para {}", module, artefact.name, artefact_dest.display());
+                        process_log.push(msg.clone());
+                        let _ = app.emit("log-line", &msg);
+                    }
+                    Err(e) => {
+                        let msg = format!("[{}] ERRO ao copiar {}: {}", module, artefact.name, e);
+                        process_log.push(msg.clone());
+                        let _ = app.emit("log-line", &msg);
+                        errors.push(format!("Falha ao copiar {}: {}", artefact.name, e));
+                        continue;
+                    }
+                }
             }
 
-            collect_major_versions(&artefact_dest, &mut all_major_classes, &mut all_major_jars)
-                .map_err(|e| e.to_string())?;
-        }
-
-        if !mvn_success {
-            break;
+            process_log.push(format!("[{}] Verificando major versions de {}...", module, artefact.name));
+            if let Err(e) = collect_major_versions(&artefact_dest, &mut all_major_classes, &mut all_major_jars) {
+                let msg = format!("[{}] ERRO ao verificar major versions de {}: {}", module, artefact.name, e);
+                process_log.push(msg.clone());
+                let _ = app.emit("log-line", &msg);
+                errors.push(format!("Falha ao verificar major versions de {}: {}", artefact.name, e));
+            }
         }
     }
 
-    // Modules info for readme
+    process_log.push(format!("Total de classes com major version verificadas: {}", all_major_classes.len()));
+    process_log.push(format!("Total de JARs com major version verificadas: {}", all_major_jars.len()));
+
     let modules_info: Vec<(&str, &str)> = by_module.keys().map(|m| {
         let v = by_module[m].first().map(|a| &*a.version).unwrap_or("?");
         (m.as_str(), v)
     }).collect();
 
-    // Generate readme.txt
+    if !errors.is_empty() {
+        process_log.push("".to_string());
+        process_log.push("========================================".to_string());
+        process_log.push("ERROS ENCONTRADOS DURANTE O PROCESSAMENTO".to_string());
+        process_log.push("========================================".to_string());
+        for err in &errors {
+            process_log.push(format!("  - {}", err));
+        }
+        process_log.push("".to_string());
+    }
+
     let readme_content = build_readme_content(
         &modules_info,
         &pasta_pai_upper,
@@ -211,26 +275,60 @@ pub async fn process_artefacts(
         &all_major_jars,
     );
 
+    let _ = app.emit("status", "Gerando readme.txt...");
+    process_log.push("Gerando readme.txt...".to_string());
     let readme_path = temp_path.join(&pack_name).join("readme.txt");
     if let Some(parent) = readme_path.parent() {
-        std::fs::create_dir_all(parent).map_err(|e| e.to_string())?;
+        if let Err(e) = std::fs::create_dir_all(parent) {
+            let msg = format!("ERRO ao criar diretório do readme: {}", e);
+            process_log.push(msg.clone());
+            let _ = app.emit("log-line", &msg);
+            errors.push(e.to_string());
+        }
     }
-    std::fs::write(&readme_path, &readme_content).map_err(|e| e.to_string())?;
+    if let Err(e) = std::fs::write(&readme_path, &readme_content) {
+        let msg = format!("ERRO ao escrever readme.txt: {}", e);
+        let _ = app.emit("log-line", &msg);
+        errors.push(e.to_string());
+    } else {
+        process_log.push("readme.txt gerado com sucesso".to_string());
+    }
 
-    // Zip packages
     let _ = app.emit("status", "Compactando pacotes...");
-    zip_packages(&temp_path, destiny_path).map_err(|e| e.to_string())?;
+    process_log.push("Compactando pacote zip...".to_string());
+    if let Err(e) = zip_packages(&temp_path, destiny_path) {
+        let msg = format!("ERRO ao compactar pacote: {}", e);
+        process_log.push(msg.clone());
+        let _ = app.emit("log-line", &msg);
+        errors.push(e.to_string());
+    } else {
+        process_log.push(format!("Pacote salvo em: {}", destiny_path.join(format!("{}.zip", pack_name)).display()));
+    }
 
     if temp_path.exists() {
-        std::fs::remove_dir_all(&temp_path).map_err(|e| e.to_string())?;
+        if let Err(e) = std::fs::remove_dir_all(&temp_path) {
+            let msg = format!("ERRO ao limpar diretório temporário: {}", e);
+            let _ = app.emit("log-line", &msg);
+            errors.push(e.to_string());
+        } else {
+            process_log.push("Diretório temporário removido com sucesso".to_string());
+        }
     }
 
     let _ = Command::new("explorer").arg(destiny_path).spawn();
 
     let _ = app.emit("progress", 100.0);
-    let _ = app.emit("status", "Processamento concluído!");
 
-    Ok(mvn_success)
+    if !errors.is_empty() {
+        let _ = app.emit("status", "Processamento concluído com erros!");
+        process_log.push("Processamento concluído com erros! Verifique o readme.txt para mais detalhes.".to_string());
+        return Err(format!("Processamento concluído com {} erro(s). Verifique o readme.txt no pacote gerado.", errors.len()));
+    }
+
+    let _ = app.emit("status", "Processamento concluído com sucesso!");
+    process_log.push("Processamento concluído com sucesso!".to_string());
+
+    Ok(true)
 }
 
 fn collect_major_versions(
