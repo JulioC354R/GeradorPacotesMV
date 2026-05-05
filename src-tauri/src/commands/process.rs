@@ -417,7 +417,7 @@ fn zip_packages(src: &Path, dest: &Path) -> Result<(), String> {
                 .strip_prefix(&dir_path)
                 .map_err(|e| e.to_string())?
                 .to_string_lossy()
-                .to_string();
+                .replace('\\', "/");
 
             if path.is_file() {
                 zip.start_file(&name, FileOptions::<()>::default()).map_err(|e| e.to_string())?;
